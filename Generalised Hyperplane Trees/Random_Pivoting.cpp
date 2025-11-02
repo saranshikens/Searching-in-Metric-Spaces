@@ -5,9 +5,9 @@
 #include <iomanip>
 using namespace std;
 
-#define N_MAX 200
-#define K_MAX 20
-#define D_MAX 10
+#define D_MAX 10 // Dimension
+#define N_MAX 200 // Max points per node
+#define K_MAX 10 // Max k for k-NN
 
 struct Point{
     float coords[D_MAX];
@@ -16,12 +16,13 @@ struct Point{
 struct TreeNode{
     Point pivotA;
     Point pivotB;
-    Point bucket[N_MAX];
+    Point bucket[N_MAX]; // points stored if leaf
     int bucketSize;
     TreeNode* left;
     TreeNode* right;
     bool isLeaf;
 
+    // internal node
     TreeNode(Point a, Point b){
         pivotA = a;
         pivotB = b;
@@ -30,6 +31,7 @@ struct TreeNode{
         bucketSize = 0;
     }
 
+    // leaf node
     TreeNode(Point arr[], int n){
         for(int i=0; i<n; i++) bucket[i] = arr[i];
         bucketSize = n;
@@ -50,6 +52,7 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size = 4){
     if(n<=0) return nullptr;
     if(n<=leaf_size) return new TreeNode(arr, n);
 
+    // pivots chosen randomly
     int idA = rand()%n;
     int idB = rand()%n;
     while(idA == idB) idB = rand()%n;
@@ -84,9 +87,7 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size = 4){
     return node;
 }
 
-// Update best list if candidate is better than current worst
-void updateBestK(Point bestPoints[], float bestDists[], int k, const Point &cand, float d) {
-    // Find index of worst (max distance)
+void updateBestK(Point bestPoints[], float bestDists[], int k, const Point &cand, float d){
     int worst = 0;
     for(int i=1; i<k; i++){
         if(bestDists[i]>bestDists[worst]) worst = i;
@@ -98,16 +99,17 @@ void updateBestK(Point bestPoints[], float bestDists[], int k, const Point &cand
     }
 }
 
-float currentRadius(float bestDists[], int k) {
+float currentRadius(float bestDists[], int k){
     float maxd = bestDists[0];
     for(int i=1; i<k; i++){
-         if(bestDists[i]>maxd) maxd = bestDists[i];
+        if(bestDists[i]>maxd) maxd = bestDists[i];
     }
        
     return maxd;
 }
 
-void searchKRec(TreeNode* node, const Point &q, Point bestPoints[], float bestDists[], int k){
+// helper function for searching
+void search(TreeNode* node, const Point &q, Point bestPoints[], float bestDists[], int k){
     if(node==nullptr) return;
 
     if(node->isLeaf){
@@ -131,20 +133,20 @@ void searchKRec(TreeNode* node, const Point &q, Point bestPoints[], float bestDi
     bool preferLeft = (d1 <= d2);
 
     if(preferLeft){
-        if(visitLeft) searchKRec(node->left, q, bestPoints, bestDists, k);
+        if(visitLeft) search(node->left, q, bestPoints, bestDists, k);
         r = currentRadius(bestDists, k);
-        if(visitRight && (d1 + r >= d2 - r)) searchKRec(node->right, q, bestPoints, bestDists, k);
+        if(visitRight && (d1 + r >= d2 - r)) search(node->right, q, bestPoints, bestDists, k);
     } 
     else{
-        if(visitRight) searchKRec(node->right, q, bestPoints, bestDists, k);
+        if(visitRight) search(node->right, q, bestPoints, bestDists, k);
         r = currentRadius(bestDists, k);
-        if(visitLeft && (d1 - r <= d2 + r)) searchKRec(node->left, q, bestPoints, bestDists, k);
+        if(visitLeft && (d1 - r <= d2 + r)) search(node->left, q, bestPoints, bestDists, k);
     }
 }
 
-void searchK(TreeNode* root, const Point &q, Point bestPoints[], float bestDists[], int k) {
+void searchK(TreeNode* root, const Point &q, Point bestPoints[], float bestDists[], int k){
     for(int i=0; i<k; i++) bestDists[i] = numeric_limits<float>::infinity();
-    searchKRec(root, q, bestPoints, bestDists, k);
+    search(root, q, bestPoints, bestDists, k);
 }
 
 void printPoint(Point p){

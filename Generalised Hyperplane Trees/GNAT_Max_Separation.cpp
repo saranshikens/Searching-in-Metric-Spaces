@@ -5,10 +5,10 @@
 #include <ctime>
 using namespace std;
 
-#define D 10          // dimension
-#define N_MAX 200     // max dataset
-#define M 8           // upper bound on pivots per node
-#define K_MAX 10      // max k for k-NN
+#define D 10 // Dimension
+#define N_MAX 200 // Max points per node
+#define M 4 // Number of pivots per node
+#define K_MAX 10 // Max k for k-NN
 
 struct Point{
     float coords[D];
@@ -45,7 +45,7 @@ struct GNATNode{
     }
 };
 
-// ------------------ Farthest-first pivot selection ------------------
+// Farthest-first pivot selection 
 void selectPivots(Point arr[], int n, Point pivots[], int& m){
     if(n==0){
         m = 0;
@@ -97,7 +97,7 @@ void selectPivots(Point arr[], int n, Point pivots[], int& m){
     m = count;
 }
 
-// ------------------ GNAT BUILD ------------------
+
 GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4){
     if(n<=0) return nullptr;
     GNATNode* node = new GNATNode();
@@ -146,7 +146,6 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4){
         }
     }
 
-    // Recursive children
     for(int i=0; i<node->m; i++){
         node->child[i] = buildGNAT(node->subset[i], node->subsetSize[i], leaf_size);
     }
@@ -154,7 +153,7 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4){
     return node;
 }
 
-// ------------------ K-NN SEARCH ------------------
+
 void updateBest(Point candidate, float d, Point bestPts[], float bestDist[], int k){
     int worst = 0;
     for(int i=1; i<k; i++){
@@ -183,12 +182,10 @@ void knnSearch(GNATNode* node, Point q, int k, Point bestPts[], float bestDist[]
         distPivot[i] = L2(q, node->pivots[i]);
     }
         
-    // Check pivots
     for(int i = 0; i<node->m; i++){
         updateBest(node->pivots[i], distPivot[i], bestPts, bestDist, k);
     }
         
-    // Visit subtrees with pruning
     for(int i=0; i<node->m; i++){
         float best = bestDist[0];
         for(int j=1; j<k; j++){
@@ -206,19 +203,17 @@ void knnSearch(GNATNode* node, Point q, int k, Point bestPts[], float bestDist[]
     }
 }
 
-// ------------------ MAIN ------------------
 int main(){
     srand(time(0));
 
-    Point points[200];
-    for(int i=0; i<200; i++){
+    Point points[N_MAX];
+    for(int i=0; i<N_MAX; i++){
         for(int j=0; j<D; j++){
             points[i].coords[j] = -10.0f + static_cast<float>(rand()) / RAND_MAX * 20.0f;
         }
     }
         
-
-    GNATNode* root = buildGNAT(points, 200);
+    GNATNode* root = buildGNAT(points, N_MAX);
 
     Point q;
     for(int j=0; j<D; j++){
