@@ -1,9 +1,13 @@
+#include "dataset.h"
 #include <iostream>
 #include <cmath>
 #include <limits>
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
+#include <iomanip>
 using namespace std;
+using namespace chrono;
 
 #define D 10 // Dimension
 #define N_MAX 200 // Max points per node
@@ -167,42 +171,57 @@ void knnSearch(GNATNode* node, Point q, int k, Point bestPts[], float bestDist[]
     }
 }
 
-int main(){
-    srand(time(0));
-    Point points[N_MAX];
-    for(int i=0; i<N_MAX; i++){
-        for(int j=0; j<D; j++){
-            points[i].coords[j] = -10.0f + static_cast<float>(rand()) / RAND_MAX * 20.0f;
-        }      
-    }
-        
-    GNATNode* root = buildGNAT(points, N_MAX);
+#define ITERATIONS 10   // hyperparameter: number of repetitions for averaging
 
-    Point q;
-    for(int j=0; j<D; j++){
-        q.coords[j] = -10.0f + static_cast<float>(rand()) / RAND_MAX * 20.0f;
-    } 
+int main() {
+    srand(time(0));
+
+    // --- Generate dataset ---
+    Point points[N_MAX];
+    for (int i = 0; i < N_MAX; i++) {
+        for (int j = 0; j < D_MAX; j++) {
+            points[i].coords[j] = DATASET[i][j];
+        }
+    }
+
+    double total_build_time = 0.0;
+    double total_search_time = 0.0;
 
     int k = 3;
     Point bestPts[K_MAX];
     float bestDist[K_MAX];
-    for(int i=0; i<k; i++){
-        bestDist[i] = numeric_limits<float>::infinity();
-    } 
 
-    knnSearch(root, q, k, bestPts, bestDist);
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        // --- Build tree ---
+        auto build_start = chrono::high_resolution_clock::now();
+        GNATNode* root = buildGNAT(points, N_MAX);
+        auto build_end = chrono::high_resolution_clock::now();
+        auto build_time = chrono::duration_cast<chrono::microseconds>(build_end - build_start).count();
+        total_build_time += build_time;
 
-    cout<<"Query: ";
-    for(int j=0; j<D; j++){
-        cout<<q.coords[j]<<" ";
+        // --- Generate query point ---
+        Point q;
+        for (int j = 0; j < D; j++) {
+            q.coords[j] = -10.0f + static_cast<float>(rand()) / RAND_MAX * 20.0f;
+        }
+
+        for (int i = 0; i < k; i++) {
+            bestDist[i] = numeric_limits<float>::infinity();
+        }
+
+        // --- Perform kNN search ---
+        auto search_start = chrono::high_resolution_clock::now();
+        knnSearch(root, q, k, bestPts, bestDist);
+        auto search_end = chrono::high_resolution_clock::now();
+        auto search_time = chrono::duration_cast<chrono::microseconds>(search_end - search_start).count();
+        total_search_time += search_time;
+
+        delete root; // free tree
     }
-    cout<<endl; 
-    cout<<"\nTop "<<k<<" nearest neighbors:"<<endl;
-    for(int i=0; i<k; i++){
-        cout<<i+1<<": ";
-        for(int j=0; j<D; j++){
-            cout<<bestPts[i].coords[j]<<" ";
-        } 
-        cout<<" | dist = "<<bestDist[i]<<endl;
-    }
+
+    cout << fixed << setprecision(2);
+    cout << "\nAveraged over " << ITERATIONS << " iterations:\n";
+    cout << "Average build time: " << (total_build_time / ITERATIONS) << " microseconds\n";
+    cout << "Average search time: " << (total_search_time / ITERATIONS) << " microseconds\n";
 }
+
