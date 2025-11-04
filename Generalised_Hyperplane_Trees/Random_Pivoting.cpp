@@ -8,7 +8,7 @@
 using namespace std;
 using namespace chrono;
 
-#define D 10 // dimension of data
+#define D 50 // dimension of data
 #define N_MAX 200 // cardinality of dataset
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
@@ -20,7 +20,7 @@ int pivotCount = 0; // pivots in the GHT
 // 0 - L2 distance
 // 1 - L1 distance
 // 2 - L_inf distance 
-int metricType = 0; 
+int metricType = 2; 
 
 
 // ---------------------- Structures ----------------------
@@ -69,15 +69,15 @@ float distance(Point x, Point y){
     }
     else if(metricType==1){ // L1 distance
         for(int i=0; i<D; i++){
-            float diff = abs(x.coords[i]-y.coords[i]);
+            float diff = fabs(x.coords[i]-y.coords[i]);
             d += diff;
         }
         return d;
     }
     else{ // L_inf distance
         for(int i=0; i<D; i++){
-            float diff = x.coords[i]-y.coords[i];
-            d += max(diff, d);
+            float diff = fabs(x.coords[i]-y.coords[i]);
+            d = max(diff, d);
         }
         return d;
     }
@@ -215,7 +215,7 @@ int main(){
 
         // generate the query point (need not be an element of the dataset)
         Point q;
-        for (int j = 0; j < D; j++) q.coords[j] = dist(rng);
+        for(int j=0; j<D; j++) q.coords[j] = dist(rng);
         Point bestPoint;
         float bestDist = numeric_limits<float>::infinity();
 
