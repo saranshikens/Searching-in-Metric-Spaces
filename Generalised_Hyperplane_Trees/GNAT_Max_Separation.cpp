@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <chrono>
 #include <limits>
+#include <random>
 #include <cstdlib>
 #include <ctime>
 using namespace std;
@@ -12,18 +13,43 @@ using namespace chrono;
 #define D 10 // Dimension
 #define N_MAX 200 // Max points per node
 #define M 4 // Number of pivots per node
-#define K_MAX 10 // Max k for k-NN
+#define K_MAX 20 // Max k for k-NN
+
+// --- Global statistics ---
+long long distCompBuild = 0;
+long long distCompSearch = 0;
+long long pivotCount = 0;
+int metricType = 0;
 
 struct Point{
     float coords[D];
 };
 
-float L2(Point a, Point b){
-    float s = 0;
-    for(int i=0; i<D; i++){
-        s += (a.coords[i]-b.coords[i])*(a.coords[i]-b.coords[i]);
+// ---------------------- Distance ----------------------
+float distance(Point x, Point y) {
+    float d = 0;
+    if(metricType==0){
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = x.coords[i] - y.coords[i];
+            d += diff * diff;
+        }
+        return sqrtf(d);
     }
-    return sqrtf(s);
+    else if(metricType==1){
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = abs(x.coords[i] - y.coords[i]);
+            d += diff;
+        }
+        return d;
+    }
+    else{
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = x.coords[i] - y.coords[i];
+            d += max(diff, d);
+        }
+        return d;
+    }
+    return -1;
 }
 
 struct GNATNode{
@@ -68,7 +94,8 @@ void selectPivots(Point arr[], int n, Point pivots[], int& m){
     int farthest = -1;
     for(int i=0; i<n; i++){
         if(i==first) continue;
-        float d = L2(arr[i], pivots[0]);
+        float d = distance(arr[i], pivots[0]);
+        distCompBuild++;
         if(d>maxDist){
             maxDist = d;
             farthest = i;
@@ -86,7 +113,7 @@ void selectPivots(Point arr[], int n, Point pivots[], int& m){
             if(chosen[i]) continue;
             float minDist = numeric_limits<float>::infinity();
             for(int j=0; j<count; j++){
-                float d = L2(arr[i], pivots[j]);
+                float d = distance(arr[i], pivots[j]);
                 if(d<minDist) minDist = d;
             }
             if(minDist>bestMinDist){
@@ -99,6 +126,7 @@ void selectPivots(Point arr[], int n, Point pivots[], int& m){
         chosen[bestIdx] = true;
     }
     m = count;
+    pivotCount += m;
 }
 
 
@@ -117,10 +145,12 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4){
 
     // Assign each point to nearest pivot
     for(int i=0; i<n; i++){
-        float best = L2(arr[i], node->pivots[0]);
+        float best = distance(arr[i], node->pivots[0]);
+        distCompBuild++;
         int bestIdx = 0;
         for(int j=1; j<node->m; j++){
-            float d = L2(arr[i], node->pivots[j]);
+            float d = distance(arr[i], node->pivots[j]);
+            distCompBuild++;
             if(d<best){
                 best = d;
                 bestIdx = j;
@@ -137,11 +167,13 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4){
                 float minD = numeric_limits<float>::infinity();
                 float maxD = 0;
                 for(int k=0; k<node->subsetSize[j]; k++){
-                    float d = L2(node->pivots[i], node->subset[j][k]);
+                    float d = distance(node->pivots[i], node->subset[j][k]);
+                    distCompBuild++;
                     if(d<minD) minD = d;
                     if(d>maxD) maxD = d;
                 }
-                float dp = L2(node->pivots[i], node->pivots[j]);
+                float dp = distance(node->pivots[i], node->pivots[j]);
+                distCompBuild++;
                 if(dp<minD) minD = dp;
                 if(dp>maxD) maxD = dp;
                 node->rangeLow[i][j] = minD;
@@ -170,96 +202,141 @@ void updateBest(Point candidate, float d, Point bestPts[], float bestDist[], int
     }
 }
 
-void knnSearch(GNATNode* node, Point q, int k, Point bestPts[], float bestDist[]){
-    if(!node) return;
+// --- 1-NN search ---
+void nnSearch(GNATNode* node, const Point &q, Point &bestPt, float &bestDist) {
+    if (!node) return;
 
-    if(node->isLeaf){
-        for(int i=0; i<node->leafCount; i++){
-            float d = L2(q, node->leafPoints[i]);
-            updateBest(node->leafPoints[i], d, bestPts, bestDist, k);
+    if (node->isLeaf) {
+        for (int i = 0; i < node->leafCount; i++) {
+            float d = distance(q, node->leafPoints[i]);
+            distCompSearch++;
+            if (d < bestDist) {
+                bestDist = d;
+                bestPt = node->leafPoints[i];
+            }
         }
         return;
     }
 
     float distPivot[M];
-    for(int i=0; i<node->m; i++){
-        distPivot[i] = L2(q, node->pivots[i]);
-    }
-        
-    for(int i = 0; i<node->m; i++){
-        updateBest(node->pivots[i], distPivot[i], bestPts, bestDist, k);
-    }
-        
-    for(int i=0; i<node->m; i++){
-        float best = bestDist[0];
-        for(int j=1; j<k; j++){
-            if(bestDist[j]<best) best = bestDist[j];
+    for (int i = 0; i < node->m; i++)
+        distPivot[i] = distance(q, node->pivots[i]);
+        distCompSearch++;
+
+    for (int i = 0; i < node->m; i++) {
+        if (distPivot[i] < bestDist) {
+            bestDist = distPivot[i];
+            bestPt = node->pivots[i];
         }
-            
+    }
+
+    for (int i = 0; i < node->m; i++) {
         bool prune = false;
-        for(int j=0; j<node->m; j++){
-            if(distPivot[j]-best > node->rangeHigh[j][i] || distPivot[j] + best < node->rangeLow[j][i]){
+        for (int j = 0; j < node->m; j++) {
+            if (distPivot[j] - bestDist > node->rangeHigh[j][i] ||
+                distPivot[j] + bestDist < node->rangeLow[j][i]) {
                 prune = true;
                 break;
             }
         }
-        if(!prune) knnSearch(node->child[i], q, k, bestPts, bestDist);
+        if (!prune)
+            nnSearch(node->child[i], q, bestPt, bestDist);
     }
 }
 
+// ---------------------- Utility ----------------------
+void printPoint(Point p) {
+    cout << "(" << fixed << setprecision(2);
+    for (int i = 0; i < D_MAX; i++) {
+        cout << p.coords[i];
+        if (i < D_MAX - 1) cout << ", ";
+    }
+    cout << ")";
+}
 
-#define ITERATIONS 10   // hyperparameter: number of repetitions for averaging
+// --- Experiment driver ---
+#define ITERATIONS 2000
 
 int main() {
-    srand(time(0));
 
-    // --- Generate dataset ---
     Point points[N_MAX];
-    for (int i = 0; i < N_MAX; i++) {
-        for (int j = 0; j < D_MAX; j++) {
+    for (int i = 0; i < N_MAX; i++)
+        for (int j = 0; j < D; j++)
             points[i].coords[j] = DATASET[i][j];
-        }
-    }
+
+    mt19937 rng((unsigned)time(0));
+    uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
     double total_build_time = 0.0;
     double total_search_time = 0.0;
-
-    int k = 3;
-    Point bestPts[K_MAX];
-    float bestDist[K_MAX];
+    long long totalDistBuild = 0, totalDistSearch = 0, totalPivot = 0;
 
     for (int iter = 0; iter < ITERATIONS; iter++) {
-        // --- Build tree ---
-        auto build_start = chrono::high_resolution_clock::now();
+        distCompBuild = distCompSearch = pivotCount = 0;
+
+        auto build_start = high_resolution_clock::now();
         GNATNode* root = buildGNAT(points, N_MAX);
-        auto build_end = chrono::high_resolution_clock::now();
-        auto build_time = chrono::duration_cast<chrono::microseconds>(build_end - build_start).count();
-        total_build_time += build_time;
+        auto build_end = high_resolution_clock::now();
+        total_build_time += duration_cast<microseconds>(build_end - build_start).count();
 
-        // --- Generate query point ---
         Point q;
-        for (int j = 0; j < D; j++) {
-            q.coords[j] = -10.0f + static_cast<float>(rand()) / RAND_MAX * 20.0f;
-        }
+        for (int j = 0; j < D; j++)
+            q.coords[j] = dist(rng);
 
-        for (int i = 0; i < k; i++) {
-            bestDist[i] = numeric_limits<float>::infinity();
-        }
+        Point bestPt;
+        float bestDist = numeric_limits<float>::infinity();
 
-        // --- Perform kNN search ---
-        auto search_start = chrono::high_resolution_clock::now();
-        knnSearch(root, q, k, bestPts, bestDist);
-        auto search_end = chrono::high_resolution_clock::now();
-        auto search_time = chrono::duration_cast<chrono::microseconds>(search_end - search_start).count();
-        total_search_time += search_time;
+        auto search_start = high_resolution_clock::now();
+        nnSearch(root, q, bestPt, bestDist);
+        auto search_end = high_resolution_clock::now();
+        total_search_time += duration_cast<microseconds>(search_end - search_start).count();
 
-        delete root; // free tree
+        totalDistBuild += distCompBuild;
+        totalDistSearch += distCompSearch;
+        totalPivot += pivotCount;
+
+        delete root;
     }
 
     cout << fixed << setprecision(2);
     cout << "\nAveraged over " << ITERATIONS << " iterations:\n";
     cout << "Average build time: " << (total_build_time / ITERATIONS) << " microseconds\n";
     cout << "Average search time: " << (total_search_time / ITERATIONS) << " microseconds\n";
+    cout << "Average distance computations (build): " << (totalDistBuild / ITERATIONS) << "\n";
+    cout << "Average distance computations (search): " << (totalDistSearch / ITERATIONS) << "\n";
+    cout << "Average pivot count: " << (totalPivot / ITERATIONS) << "\n";
+
+    // Optional: one example run
+    GNATNode* root = buildGNAT(points, N_MAX, 4);
+    Point q;
+    for (int j = 0; j < D_MAX; j++) q.coords[j] = dist(rng);
+    Point bestPoint;
+    float bestDist = numeric_limits<float>::infinity();
+    nnSearch(root, q, bestPoint, bestDist);
+
+    cout << "\nQuery point:\n"; printPoint(q);
+    cout << "\nNearest neighbor:\n"; printPoint(bestPoint);
+    cout << "\nDistance = " << bestDist << "\n";
+
+    Point bestPointBrute;
+    float bestDistBrute = numeric_limits<float>::infinity();
+    auto search_start_brute = high_resolution_clock::now();
+    for(int i=0; i<N_MAX; i++){
+        float dist = distance(q, points[i]);
+        if(dist < bestDistBrute){
+            bestPointBrute = points[i];
+            bestDistBrute = dist;
+        }
+    }
+    auto search_end_brute = high_resolution_clock::now();
+    auto totalSearchTimeBrute = duration_cast<microseconds>(search_end_brute - search_start_brute).count();
+    cout << "\nACTUAL Nearest neighbor:\n"; printPoint(bestPointBrute);
+    cout << "\nACTUAL Distance = " << bestDistBrute << "\n";
+    cout << "\nTime taken = " << totalSearchTimeBrute << "microseconds"<<endl;
+
+    delete root;
 }
+
+
 
 

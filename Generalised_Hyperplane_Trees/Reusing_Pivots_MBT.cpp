@@ -10,7 +10,13 @@ using namespace chrono;
 
 #define D_MAX 10 // Dimension
 #define N_MAX 200 // Max points per node
-#define K_MAX 10 // Max k for k-NN
+#define K_MAX 20 // Max k for k-NN
+
+// ---------------------- Stats ----------------------
+long long distCompsBuild = 0;
+long long distCompsSearch = 0;
+long long pivotCount = 1;
+int metricType = 0; // 0-L2, 1-L1, 2-L_Inf
 
 struct Point{
     float coords[D_MAX];
@@ -41,12 +47,34 @@ struct TreeNode{
     }
 };
 
-float L2(Point x, Point y){
+// ---------------------- Distance ----------------------
+float distance(Point x, Point y, bool duringBuild = false) {
+    if (duringBuild) distCompsBuild++;
+    else distCompsSearch++;
+
     float d = 0;
-    for(int i=0; i<D_MAX; i++){
-        d += (x.coords[i] - y.coords[i])*(x.coords[i] - y.coords[i]);
+    if(metricType==0){
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = x.coords[i] - y.coords[i];
+            d += diff * diff;
+        }
+        return sqrtf(d);
     }
-    return sqrtf(d);
+    else if(metricType==1){
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = abs(x.coords[i] - y.coords[i]);
+            d += diff;
+        }
+        return d;
+    }
+    else{
+        for (int i = 0; i < D_MAX; i++) {
+            float diff = x.coords[i] - y.coords[i];
+            d += max(diff, d);
+        }
+        return d;
+    }
+    return -1;
 }
 
 TreeNode* buildGHT(Point arr[], int n, int leaf_size = 4, Point* reusedPivot = nullptr){
@@ -68,6 +96,7 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size = 4, Point* reusedPivot = n
         idB = rand()%n;
         pB = arr[idB];
     }
+    pivotCount++;
     
     TreeNode* node = new TreeNode(pA, pB);
 
@@ -76,8 +105,9 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size = 4, Point* reusedPivot = n
 
     for(int i=0; i<n; i++){
         if(i==idA || i==idB) continue;
-        float dA = L2(arr[i], pA);
-        float dB = L2(arr[i], pB);
+        float dA = distance(arr[i], pA);
+        float dB = distance(arr[i], pB);
+        distCompsBuild += 2;
         if(dA<=dB) leftPartition[leftN++] = arr[i];
         else rightPartition[rightN++] = arr[i];
     }
@@ -119,45 +149,38 @@ float currentRadius(float bestDists[], int k){
     return maxd;
 }
 
-void search(TreeNode* node, const Point &q, Point bestPoints[], float bestDists[], int k){
-    if(node==nullptr) return;
+// ---------------------- Search ----------------------
+void search1NN(TreeNode* node, const Point &q, Point &bestPoint, float &bestDist) {
+    if (node == nullptr) return;
 
-    if(node->isLeaf){
-        for(int i=0; i<node->bucketSize; i++){
-            float d = L2(q, node->bucket[i]);
-            updateBestK(bestPoints, bestDists, k, node->bucket[i], d);
+    if (node->isLeaf) {
+        for (int i = 0; i < node->bucketSize; i++) {
+            float d = distance(q, node->bucket[i]);
+            if (d < bestDist) {
+                bestDist = d;
+                bestPoint = node->bucket[i];
+            }
         }
         return;
     }
 
-    float d1 = L2(q, node->pivotA);
-    float d2 = L2(q, node->pivotB);
+    float dA = distance(q, node->pivotA);
+    float dB = distance(q, node->pivotB);
+    distCompsSearch += 2;
 
-    updateBestK(bestPoints, bestDists, k, node->pivotA, d1);
-    updateBestK(bestPoints, bestDists, k, node->pivotB, d2);
+    if (dA < bestDist) { bestDist = dA; bestPoint = node->pivotA; }
+    if (dB < bestDist) { bestDist = dB; bestPoint = node->pivotB; }
 
-    float r = currentRadius(bestDists, k);
-
-    bool visitLeft = (d1 - r <= d2 + r);
-    bool visitRight = (d1 + r >= d2 - r);
-    bool preferLeft = (d1 <= d2);
-
-    if(preferLeft){
-        if(visitLeft) search(node->left, q, bestPoints, bestDists, k);
-        r = currentRadius(bestDists, k);
-        if(visitRight && (d1 + r >= d2 - r)) search(node->right, q, bestPoints, bestDists, k);
-    } 
-    else{
-        if(visitRight) search(node->right, q, bestPoints, bestDists, k);
-        r = currentRadius(bestDists, k);
-        if(visitLeft && (d1 - r <= d2 + r)) search(node->left, q, bestPoints, bestDists, k);
+    bool preferLeft = (dA <= dB);
+    if (preferLeft) {
+        search1NN(node->left, q, bestPoint, bestDist);
+        if (fabs(dA - dB) <= bestDist) search1NN(node->right, q, bestPoint, bestDist);
+    } else {
+        search1NN(node->right, q, bestPoint, bestDist);
+        if (fabs(dA - dB) <= bestDist) search1NN(node->left, q, bestPoint, bestDist);
     }
 }
 
-void searchK(TreeNode* root, const Point &q, Point bestPoints[], float bestDists[], int k) {
-    for(int i=0; i<k; i++) bestDists[i] = numeric_limits<float>::infinity();
-    search(root, q, bestPoints, bestDists, k);
-}
 
 void printPoint(Point p){
     cout<<"("<<setprecision(2);
@@ -168,105 +191,82 @@ void printPoint(Point p){
     cout<<")";
 }
 
-/*int main() {
-    srand((unsigned)time(0));
-    Point points[N_MAX];
-    mt19937 rng((unsigned)time(0));
-    uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
-    for(int i=0; i<N_MAX; i++){
-        for(int j=0; j<D_MAX; j++){
-            points[i].coords[j] = dist(rng);
-        }
-    }      
-
-    TreeNode* root = buildGHT(points, N_MAX, 4);
-
-    Point q;
-    for(int j=0; j<D_MAX; j++) q.coords[j] = dist(rng);
-
-    int k = 5;
-    Point bestPoints[K_MAX];
-    float bestDists[K_MAX];
-
-    searchK(root, q, bestPoints, bestDists, k);
-
-    cout<<"Query point:"<<endl;
-    printPoint(q);
-    cout<<endl;
-    cout<<"\n"<<k<<" nearest neighbors:"<<endl;
-    for(int i=0; i<k; i++){
-        cout<<i+1<<". ";
-        printPoint(bestPoints[i]);
-        cout<<"  dist="<<bestDists[i]<<endl;
-    }
-}*/
-
-#define ITERATIONS 10   // Hyperparameter: number of repetitions for averaging
+#define ITERATIONS 2000   // Hyperparameter: number of repetitions for averaging
 
 int main() {
     Point points[N_MAX];
-    for (int i = 0; i < N_MAX; i++) {
-        for (int j = 0; j < D_MAX; j++) {
+    for (int i = 0; i < N_MAX; i++)
+        for (int j = 0; j < D_MAX; j++)
             points[i].coords[j] = DATASET[i][j];
-        }
-    }
-
-    double total_build_time = 0.0;
-    double total_search_time = 0.0;
 
     mt19937 rng((unsigned)time(0));
     uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
-    int k = 5;
-    Point bestPoints[K_MAX];
-    float bestDists[K_MAX];
+    double totalBuildTime = 0, totalSearchTime = 0;
+    long long totalDistBuild = 0, totalDistSearch = 0, totalPivots = 0;
 
     for (int iter = 0; iter < ITERATIONS; iter++) {
-        // Build tree
+        distCompsBuild = distCompsSearch = pivotCount = 0;
+
         auto build_start = high_resolution_clock::now();
         TreeNode* root = buildGHT(points, N_MAX, 4);
         auto build_end = high_resolution_clock::now();
-        auto build_time =
-            duration_cast<microseconds>(build_end - build_start).count();
-        total_build_time += build_time;
+        totalBuildTime += duration_cast<microseconds>(build_end - build_start).count();
 
-        // Generate a random query
         Point q;
         for (int j = 0; j < D_MAX; j++) q.coords[j] = dist(rng);
+        Point bestPoint;
+        float bestDist = numeric_limits<float>::infinity();
 
-        // Search kNN
         auto search_start = high_resolution_clock::now();
-        searchK(root, q, bestPoints, bestDists, k);
+        search1NN(root, q, bestPoint, bestDist);
         auto search_end = high_resolution_clock::now();
-        auto search_time =
-            duration_cast<microseconds>(search_end - search_start).count();
-        total_search_time += search_time;
+        totalSearchTime += duration_cast<microseconds>(search_end - search_start).count();
 
-        delete root; // free tree between iterations (important!)
+        totalDistBuild += distCompsBuild;
+        totalDistSearch += distCompsSearch;
+        totalPivots += pivotCount;
+
+        delete root;
     }
 
     cout << fixed << setprecision(2);
     cout << "\nAveraged over " << ITERATIONS << " iterations:\n";
-    cout << "Average build time: " << (total_build_time / ITERATIONS)
-         << " microseconds\n";
-    cout << "Average search time: " << (total_search_time / ITERATIONS)
-         << " microseconds\n";
+    cout << "Average build time: " << (totalBuildTime / ITERATIONS) << " µs\n";
+    cout << "Average 1-NN search time: " << (totalSearchTime / ITERATIONS) << " µs\n";
+    cout << "Average build distance computations: " << (totalDistBuild / ITERATIONS) << "\n";
+    cout << "Average search distance computations: " << (totalDistSearch / ITERATIONS) << "\n";
+    cout << "Average pivots used: " << (totalPivots / ITERATIONS) << "\n";
 
-    // Optional: run one final search to show actual neighbors
+    // Optional: one example run
+    TreeNode* root = buildGHT(points, N_MAX, 4);
     Point q;
     for (int j = 0; j < D_MAX; j++) q.coords[j] = dist(rng);
-    TreeNode* root = buildGHT(points, N_MAX, 4);
-    searchK(root, q, bestPoints, bestDists, k);
+    Point bestPoint;
+    float bestDist = numeric_limits<float>::infinity();
+    search1NN(root, q, bestPoint, bestDist);
 
-    cout << "\nQuery point:\n";
-    printPoint(q);
-    cout << "\n\n" << k << " nearest neighbors:\n";
-    for (int i = 0; i < k; i++) {
-        cout << i + 1 << ". ";
-        printPoint(bestPoints[i]);
-        cout << "  dist=" << bestDists[i] << "\n";
+    cout << "\nQuery point:\n"; printPoint(q);
+    cout << "\nNearest neighbor:\n"; printPoint(bestPoint);
+    cout << "\nDistance = " << bestDist << "\n";
+
+    Point bestPointBrute;
+    float bestDistBrute = numeric_limits<float>::infinity();
+    auto search_start_brute = high_resolution_clock::now();
+    for(int i=0; i<N_MAX; i++){
+        float dist = distance(q, points[i]);
+        if(dist < bestDistBrute){
+            bestPointBrute = points[i];
+            bestDistBrute = dist;
+        }
     }
+    auto search_end_brute = high_resolution_clock::now();
+    auto totalSearchTimeBrute = duration_cast<microseconds>(search_end_brute - search_start_brute).count();
+    cout << "\nACTUAL Nearest neighbor:\n"; printPoint(bestPointBrute);
+    cout << "\nACTUAL Distance = " << bestDistBrute << "\n";
+    cout << "\nTime taken = " << totalSearchTimeBrute << "microseconds"<<endl;
 
     delete root;
 }
+
