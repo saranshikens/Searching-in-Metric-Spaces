@@ -10,8 +10,8 @@ using namespace std;
 using namespace chrono;
 
 #define D 50 // dimension of data
-#define N_MAX 200 // cardinality of dataset
-#define M 4 // no of pivots per internal node
+#define N_MAX 2000 // cardinality of dataset
+#define M 12 // no of pivots per internal node
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
 // --------------------Global Counters---------------------
@@ -21,9 +21,9 @@ int pivotCount = 0; // pivots in the GHT
 // 0 - L2 distance
 // 1 - L1 distance
 // 2 - L_inf distance 
-int metricType = 0; 
+int metricType = 2; 
 
-
+ 
 // ---------------------- Structures ----------------------
 struct Point{
     float coords[D];
@@ -33,8 +33,6 @@ struct GNATNode{
     Point pivots[M];
     float rangeLow[M][M];
     float rangeHigh[M][M];
-    Point subset[M][N_MAX];
-    int subsetSize[M];
     GNATNode* child[M];
     int m;
     bool isLeaf;
@@ -46,7 +44,6 @@ struct GNATNode{
         isLeaf = false;
         leafCount = 0;
         for(int i=0; i<M; i++){
-            subsetSize[i] = 0;
             child[i] = nullptr;
         }
     }
@@ -98,7 +95,8 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4) {
     pivotCount += node->m;
 
     // pick m pivots randomly
-    bool chosen[N_MAX] = {false};
+    bool* chosen = new bool[n];
+    for(int i=0; i<n; i++) chosen[i] = false;
     for(int i=0; i<node->m; i++){
         int id;
         do{
@@ -109,6 +107,12 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4) {
     }
 
     // assign each point to nearest pivot
+    Point* subset = new Point[M * N_MAX];
+    int* subsetSize = new int[M];
+    for(int i=0; i<M; i++){
+        subsetSize[i] = 0;
+    }
+
     for(int i=0; i<n; i++){
         if(chosen[i]) continue;
         float best = distance(arr[i], node->pivots[0]);
@@ -122,7 +126,7 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4) {
                 bestIdx = j;
             }
         }
-        node->subset[bestIdx][node->subsetSize[bestIdx]++] = arr[i];
+        subset[bestIdx*N_MAX+subsetSize[bestIdx]++] = arr[i];
     }
 
     // compute distance ranges between pivots and subsets
@@ -135,8 +139,8 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4) {
             else{
                 float minD = numeric_limits<float>::infinity();
                 float maxD = 0;
-                for(int k=0; k<node->subsetSize[j]; k++){
-                    float d = distance(node->pivots[i], node->subset[j][k]);
+                for(int k=0; k<subsetSize[j]; k++){
+                    float d = distance(node->pivots[i], subset[j*N_MAX+k]);
                     computationsBuild++;
                     if(d<minD) minD = d;
                     if(d>maxD) maxD = d;
@@ -153,8 +157,11 @@ GNATNode* buildGNAT(Point arr[], int n, int leaf_size = 4) {
 
     // recursively build children
     for(int i=0; i<node->m; i++){
-        node->child[i] = buildGNAT(node->subset[i], node->subsetSize[i], leaf_size);
+        node->child[i] = buildGNAT(subset+i*N_MAX, subsetSize[i], leaf_size);
     }
+    delete []subset;
+    delete []subsetSize;
+    delete []chosen;
 
     return node;
 }
@@ -175,10 +182,12 @@ void search(GNATNode* node, const Point &q, Point &bestPt, float &bestDist) {
         return;
     }
 
-    float distPivot[M];
-    for (int i = 0; i < node->m; i++)
+    float* distPivot = new float[M];
+    for (int i = 0; i < node->m; i++){
         distPivot[i] = distance(q, node->pivots[i]);
         computationsSearch++;
+    }
+        
 
     for (int i = 0; i < node->m; i++) {
         if (distPivot[i] < bestDist) {
@@ -187,20 +196,39 @@ void search(GNATNode* node, const Point &q, Point &bestPt, float &bestDist) {
         }
     }
 
+    bool* prune = new bool[M];
+    for(int i = 0; i < node->m; i++) prune[i] = false;
+
     for (int i = 0; i < node->m; i++) {
-        bool prune = false;
         for (int j = 0; j < node->m; j++) {
-            if (distPivot[j] - bestDist > node->rangeHigh[j][i] ||
-                distPivot[j] + bestDist < node->rangeLow[j][i]) {
-                prune = true;
-                break;
+            if(i==j) continue;
+            if(prune[j]) continue;
+            if (distPivot[i] - bestDist > node->rangeHigh[i][j] ||
+                distPivot[i] + bestDist < node->rangeLow[i][j]) {
+                prune[j] = true;
             }
         }
-        if (!prune)
-            search(node->child[i], q, bestPt, bestDist);
     }
+    for(int i=0; i<node->m; i++){
+        if(!prune[i]) search(node->child[i], q, bestPt, bestDist);
+    }
+    delete []prune;
+    delete []distPivot;
 }
 
+// ---------------------- Delete/cleanup ----------------------
+void deleteGNAT(GNATNode* node){
+    if(!node) return;
+    if(!node->isLeaf){
+        for(int i=0; i<node->m; i++){
+            if(node->child[i]){
+                deleteGNAT(node->child[i]);
+                node->child[i] = nullptr;
+            }
+        }
+    }
+    delete node;
+}
 
 void printPoint(Point p){
     cout<<"("<<fixed<<setprecision(2);
@@ -251,7 +279,7 @@ int main(){
         totalDistSearch += computationsSearch;
         totalPivots += pivotCount;
 
-        delete root;
+        deleteGNAT(root);
     }
 
     cout<<fixed<<setprecision(2);
@@ -264,7 +292,7 @@ int main(){
 
     GNATNode* root = buildGNAT(points, N_MAX, 4);
     Point q;
-    for (int j = 0; j < D_MAX; j++) q.coords[j] = dist(rng);
+    for (int j = 0; j < D; j++) q.coords[j] = dist(rng);
     Point bestPoint;
     float bestDist = numeric_limits<float>::infinity();
     search(root, q, bestPoint, bestDist);

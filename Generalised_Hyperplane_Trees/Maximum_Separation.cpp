@@ -8,7 +8,7 @@
 using namespace std;
 using namespace chrono;
 
-#define D 50 // dimension of data
+#define D 20 // dimension of data
 #define N_MAX 200 // cardinality of dataset
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
@@ -109,7 +109,9 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // paritioning will sto
     pivotCount += 2; // two pivots used
     TreeNode* node = new TreeNode(pA, pB);
 
-    Point leftPartition[N_MAX], rightPartition[N_MAX]; // partition of the dataset due to the pivots
+    // partition of the dataset due to the pivots
+    Point* leftPartition = new Point[n];
+    Point* rightPartition = new Point[n];
     int leftN = 0, rightN = 0; // track index of the last elements in the partition arrays
 
     // partitioning the dataset
@@ -123,21 +125,18 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // paritioning will sto
         else rightPartition[rightN++] = arr[i];
     }
 
-    /*if(leftN==0 || rightN==0){
-        leftN = 0;
-        rightN = 0;
-        for(int i=0; i<n; i++){
-            if(i==idA || i==idB) continue;
-            if(i%2==0) leftPartition[leftN++] = arr[i];
-            else rightPartition[rightN++] = arr[i];
-        }
-        if(leftN+rightN==0) return new TreeNode(arr, n);
-    }*/
-    if(leftN+rightN==0) return new TreeNode(arr, n); // if both partitions are empty (very rare), just return a leaf node
+    if(leftN+rightN==0){
+        TreeNode* leaf = new TreeNode(arr, n);
+        delete []leftPartition;
+        delete []rightPartition;
+        return leaf; // if both partitions are empty (very rare), just return a leaf node
+    } 
 
     // recursively build the tree
     node->left = buildGHT(leftPartition, leftN, leaf_size);
     node->right = buildGHT(rightPartition, rightN, leaf_size);
+    delete []leftPartition;
+    delete []rightPartition;
     return node;
 }
 
@@ -150,6 +149,7 @@ void search(TreeNode* node, const Point &q, Point &bestPoint, float &bestDist){
     if(node->isLeaf){
         for(int i=0; i<node->bucketSize; i++){
             float d = distance(q, node->bucket[i]);
+            computationsSearch++;
             if(d<bestDist){
                 bestDist = d;
                 bestPoint = node->bucket[i];
@@ -172,19 +172,20 @@ void search(TreeNode* node, const Point &q, Point &bestPoint, float &bestDist){
         bestPoint = node->pivotB;
     }
 
-    bool goLeft = (dA<=dB);
-    if(goLeft){
-        // equivalent to d(q,p1) - r <= d(q,p2) + r
-        if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
-        // check if right subtree could still have closer point
-        if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
-    } 
-    else{
-        if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
-        if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
-    }
+    // equivalent to d(q,p1) - r <= d(q,p2) + r
+    if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
+    if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
 }
 
+// Recursively delete tree (important to avoid memory leaks)
+void deleteTree(TreeNode* node){
+    if(node==nullptr) return;
+    if(!node->isLeaf){
+        deleteTree(node->left);
+        deleteTree(node->right);
+    }
+    delete node;
+}
 
 void printPoint(Point p){
     cout<<"("<<fixed<<setprecision(2);
@@ -240,7 +241,7 @@ int main(){
         totalDistSearch += computationsSearch;
         totalPivots += pivotCount;
 
-        delete root;
+        deleteTree(root);
     }
 
     cout<<fixed<<setprecision(2);
@@ -284,5 +285,5 @@ int main(){
     cout<<"\nActual Distance = "<<bestDistBrute<<endl;
     cout<<"Time taken to brute force:"<<totalSearchTimeBrute<<" microseconds"<<endl;
 
-    delete root;
+    deleteTree(root);
 }

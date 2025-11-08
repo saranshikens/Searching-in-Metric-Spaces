@@ -4,7 +4,7 @@
 using namespace std;
 
 #define N_MAX 200
-#define D_MAX 50
+#define D_MAX 10
 
 int main() {
     mt19937 rng((unsigned)time(0));

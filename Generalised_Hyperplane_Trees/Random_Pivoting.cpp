@@ -9,7 +9,7 @@ using namespace std;
 using namespace chrono;
 
 #define D 50 // dimension of data
-#define N_MAX 200 // cardinality of dataset
+#define N_MAX 2000 // cardinality of dataset
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
 
@@ -20,7 +20,7 @@ int pivotCount = 0; // pivots in the GHT
 // 0 - L2 distance
 // 1 - L1 distance
 // 2 - L_inf distance 
-int metricType = 2; 
+int metricType = 1; 
 
 
 // ---------------------- Structures ----------------------
@@ -86,7 +86,7 @@ float distance(Point x, Point y){
 
 
 // ---------------------- Build ----------------------
-TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // paritioning will stop when the partition size reaches 4
+TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // partitioning will stop when the partition size reaches 4
     if(n<=0) return nullptr;
     if(n<=leaf_size) return new TreeNode(arr, n);
 
@@ -99,7 +99,9 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // paritioning will sto
     Point pA = arr[idA], pB = arr[idB]; // pivots for the current TreeNode
     TreeNode* node = new TreeNode(pA, pB);
 
-    Point leftPartition[N_MAX], rightPartition[N_MAX]; // partition of the dataset due to the pivots
+    // partition of the dataset due to the pivots
+    Point* leftPartition = new Point[N_MAX];
+    Point* rightPartition = new Point[N_MAX]; 
     int leftN = 0, rightN = 0; // track index of the last elements in the partition arrays
 
     // partitioning the dataset
@@ -113,21 +115,13 @@ TreeNode* buildGHT(Point arr[], int n, int leaf_size=4){ // paritioning will sto
         else rightPartition[rightN++] = arr[i];
     }
 
-    /*if(leftN==0 || rightN==0){
-        leftN = 0;
-        rightN = 0;
-        for(int i=0; i<n; i++){
-            if(i==idA || i==idB) continue;
-            if(i%2==0) leftPartition[leftN++] = arr[i];
-            else rightPartition[rightN++] = arr[i];
-        }
-        if(leftN+rightN==0) return new TreeNode(arr, n);
-    }*/
     if(leftN+rightN==0) return new TreeNode(arr, n); // if both partitions are empty (very rare), just return a leaf node
 
     // recursively build the tree
     node->left = buildGHT(leftPartition, leftN, leaf_size);
     node->right = buildGHT(rightPartition, rightN, leaf_size);
+    delete []leftPartition;
+    delete []rightPartition;
     return node;
 }
 
@@ -162,19 +156,20 @@ void search(TreeNode* node, const Point &q, Point &bestPoint, float &bestDist){
         bestPoint = node->pivotB;
     }
 
-    bool goLeft = (dA<=dB);
-    if(goLeft){
-        // equivalent to d(q,p1) - r <= d(q,p2) + r
-        if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
-        // check if right subtree could still have closer point
-        if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
-    } 
-    else{
-        if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
-        if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
-    }
+    // equivalent to d(q,p1) - r <= d(q,p2) + r
+    if(dA-bestDist <= dB+bestDist) search(node->left, q, bestPoint, bestDist);
+    if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
 }
 
+// Recursively delete tree (important to avoid memory leaks)
+void deleteTree(TreeNode* node){
+    if(node==nullptr) return;
+    if(!node->isLeaf){
+        deleteTree(node->left);
+        deleteTree(node->right);
+    }
+    delete node;
+}
 
 void printPoint(Point p){
     cout<<"("<<fixed<<setprecision(2);
@@ -225,12 +220,11 @@ int main(){
         auto search_end = high_resolution_clock::now();
         totalSearchTime += duration_cast<microseconds>(search_end - search_start).count();
 
-        totalDistBuild += computationsBuild
-    ;
+        totalDistBuild += computationsBuild;
         totalDistSearch += computationsSearch;
         totalPivots += pivotCount;
 
-        delete root;
+        deleteTree(root);
     }
 
     cout<<fixed<<setprecision(2);
@@ -274,5 +268,5 @@ int main(){
     cout<<"\nActual Distance = "<<bestDistBrute<<endl;
     cout<<"Time taken to brute force:"<<totalSearchTimeBrute<<" microseconds"<<endl;
 
-    delete root;
+    deleteTree(root);
 }
