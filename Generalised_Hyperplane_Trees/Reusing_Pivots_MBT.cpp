@@ -9,7 +9,7 @@ using namespace std;
 using namespace chrono;
 
 #define D 100 // dimension of data
-#define N_MAX 2000 // cardinality of dataset
+#define N_MAX 200 // cardinality of dataset
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
 

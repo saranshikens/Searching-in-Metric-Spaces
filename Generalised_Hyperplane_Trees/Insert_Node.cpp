@@ -161,6 +161,75 @@ void search(TreeNode* node, const Point &q, Point &bestPoint, float &bestDist){
     if(dB-bestDist <= dA+bestDist) search(node->right, q, bestPoint, bestDist);
 }
 
+
+// ---------------------- Insert ----------------------
+void insertNode(TreeNode*& node, Point* q, int leaf_size = 4){
+    // Case 1: empty tree
+    if(node==nullptr){
+        node = new TreeNode(q, 1); // single-point leaf
+        return;
+    }
+
+    // Case 2: node is a leaf → insert here
+    if(node->isLeaf){
+        node->bucket[node->bucketSize++] = *q;   // add point
+
+        // Check overflow → split leaf
+        if(node->bucketSize > leaf_size){
+
+            // choose pivots randomly 
+            int n = node->bucketSize;
+            int idA = rand()%n;
+            int idB = rand()%n;
+            while(idA==idB) idB = rand()%n;
+
+            Point pA = node->bucket[idA];
+            Point pB = node->bucket[idB];
+            pivotCount += 2;
+
+            // create new internal node 
+            TreeNode* newNode = new TreeNode(pA, pB);
+
+            // partition points into left/right
+            Point* leftPartition  = new Point[n];
+            Point* rightPartition = new Point[n];
+            int leftN = 0, rightN = 0;
+
+            for(int i=0; i<n; i++){
+                if(i==idA || i==idB) continue;
+
+                float dA = distance(node->bucket[i], pA);
+                float dB = distance(node->bucket[i], pB);
+                computationsBuild += 2;
+
+                if(dA<=dB) leftPartition[leftN++] = node->bucket[i];
+                else rightPartition[rightN++] = node->bucket[i];
+            }
+
+            // recursively build subtrees 
+            newNode->left  = buildGHT(leftPartition, leftN, leaf_size);
+            newNode->right = buildGHT(rightPartition, rightN, leaf_size);
+
+            delete [] leftPartition;
+            delete [] rightPartition;
+
+            // Replace leaf with new internal node
+            delete node;
+            node = newNode;
+        }
+        return;
+    }
+
+    // Case 3: node is internal → descend according to pivots
+    float dA = distance(*q, node->pivotA);
+    float dB = distance(*q, node->pivotB);
+    computationsSearch += 2; 
+
+    if(dA<=dB) insertNode(node->left, q, leaf_size);
+    else insertNode(node->right, q, leaf_size);
+}
+
+
 // Recursively delete tree (important to avoid memory leaks)
 void deleteTree(TreeNode* node){
     if(node==nullptr) return;
@@ -194,79 +263,80 @@ int main(){
     mt19937 rng((unsigned)time(0));
     uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
-    double totalBuildTime = 0, totalSearchTime = 0;
-    int totalDistBuild = 0, totalDistSearch = 0, totalPivots = 0;
 
-    for(int iter=0; iter<ITERATIONS; iter++){
-        computationsBuild = 0;
-        computationsSearch = 0;
-        pivotCount = 0;
-
-        // measure time (in microseconds) to build the GHT
-        auto build_start = high_resolution_clock::now();
-        TreeNode* root = buildGHT(points, N_MAX, 4);
-        auto build_end = high_resolution_clock::now();
-        totalBuildTime += duration_cast<microseconds>(build_end - build_start).count();
-
-        // generate the query point (need not be an element of the dataset)
-        Point q;
-        for(int j=0; j<D; j++) q.coords[j] = dist(rng);
-        Point bestPoint;
-        float bestDist = numeric_limits<float>::infinity();
-
-        // measure time (in microseconds) to search the GHT
-        auto search_start = high_resolution_clock::now();
-        search(root, q, bestPoint, bestDist);
-        auto search_end = high_resolution_clock::now();
-        totalSearchTime += duration_cast<microseconds>(search_end - search_start).count();
-
-        totalDistBuild += computationsBuild;
-        totalDistSearch += computationsSearch;
-        totalPivots += pivotCount;
-
-        deleteTree(root);
-    }
-
-    cout<<fixed<<setprecision(2);
-    cout<<"\nAveraged over "<<ITERATIONS<<" iterations:"<<endl;
-    cout<<"Average build time: "<<(totalBuildTime/ITERATIONS)<<" microseconds"<<endl;
-    cout<<"Average search time: "<<(totalSearchTime/ITERATIONS)<<" microseconds"<<endl;
-    cout<<"Average distance computations in building: "<<(totalDistBuild/ITERATIONS)<<endl;
-    cout<<"Average distance computations in searching: "<<(totalDistSearch/ITERATIONS)<<endl;
-    cout<<"Average pivots used: "<<(totalPivots/ITERATIONS)<<endl;
-
-    // a demo run
     TreeNode* root = buildGHT(points, N_MAX, 4);
-    Point q;
-    for(int j=0; j<D; j++) q.coords[j] = dist(rng);
-    Point bestPoint;
-    float bestDist = numeric_limits<float>::infinity();
-    search(root, q, bestPoint, bestDist);
+    // -------------------- Test insertion correctness --------------------
+    cout<<"\n=== INSERTION TEST START ===\n";
 
-    cout<<"\nQuery point:"<<endl;
-    printPoint(q);
-    cout<<"\nNearest neighbor:"<<endl;
-    printPoint(bestPoint);
-    cout<<"\nDistance = "<<bestDist<<endl;
+    // pick a query point q
+    Point q2;
+    for(int j=0; j<D; j++) q2.coords[j] = dist(rng);
 
-    Point bestPointBrute;
-    float bestDistBrute = numeric_limits<float>::infinity();
-    
-    auto search_start_brute = high_resolution_clock::now();
+    // find NN BEFORE insertion
+    Point nn_before;
+    float dist_before = numeric_limits<float>::infinity();
+    search(root, q2, nn_before, dist_before);
+
+    cout<<"\nQuery point q2:\n";
+    printPoint(q2);
+    cout<<"\nNN before insertion:\n";
+    printPoint(nn_before);
+    cout<<"\nDistance before = "<<dist_before<<endl;
+
+    // ---------- Create point extremely close to q2 ----------
+    Point newPoint;
+    float eps = 1e-3f;
+    for(int j=0; j<D; j++)
+        newPoint.coords[j] = q2.coords[j] + eps;     // new point is q + eps
+
+    cout<<"\nInserting new point (q2 + eps):\n";
+    printPoint(newPoint);
+    cout<<endl;
+
+    // INSERT INTO TREE
+    insertNode(root, &newPoint, 4);
+
+    // ---------- Find NN AFTER insertion ----------
+    Point nn_after;
+    float dist_after = numeric_limits<float>::infinity();
+    search(root, q2, nn_after, dist_after);
+
+    cout << "\nNN after insertion:\n";
+    printPoint(nn_after);
+    cout << "\nDistance after = " << dist_after << endl;
+
+    // ---------- Brute force check ----------
+    float brute_before = numeric_limits<float>::infinity();
+    float brute_after  = numeric_limits<float>::infinity();
+    Point brute_before_pt, brute_after_pt;
+
     for(int i=0; i<N_MAX; i++){
-        float dist = distance(q, points[i]);
-        if(dist<bestDistBrute){
-            bestPointBrute = points[i];
-            bestDistBrute = dist;
+        float d = distance(q2, points[i]);
+        if(d<brute_before){
+            brute_before = d;
+            brute_before_pt = points[i];
         }
     }
-    auto search_end_brute = high_resolution_clock::now();
-    auto totalSearchTimeBrute = duration_cast<microseconds>(search_end_brute - search_start_brute).count();
-    
-    cout<<"\nActual Nearest neighbor:"<<endl;
-    printPoint(bestPointBrute);
-    cout<<"\nActual Distance = "<<bestDistBrute<<endl;
-    cout<<"Time taken to brute force:"<<totalSearchTimeBrute<<" microseconds"<<endl;
+    float d_new = distance(q2, newPoint);
+
+    if(d_new < brute_before){
+        brute_after = d_new;
+        brute_after_pt = newPoint;
+    } 
+    else{
+        brute_after = brute_before;
+        brute_after_pt = brute_before_pt;
+    }
+
+    cout<<"\nBrute-force NN before insertion:\n";
+    printPoint(brute_before_pt);
+    cout<<"\nDistance = "<<brute_before<<endl;
+
+    cout<<"\nBrute-force NN after insertion:\n";
+    printPoint(brute_after_pt);
+    cout<<"\nDistance = "<<brute_after << endl;
+
+    cout<<"\n=== INSERTION TEST END ===\n";
 
     deleteTree(root);
 }

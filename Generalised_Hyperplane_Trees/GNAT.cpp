@@ -9,8 +9,8 @@
 using namespace std;
 using namespace chrono;
 
-#define D 50 // dimension of data
-#define N_MAX 2000 // cardinality of dataset
+#define D 10 // dimension of data
+#define N_MAX 200 // cardinality of dataset
 #define M 12 // no of pivots per internal node
 #define ITERATIONS 2000 // average out results over 2000 iterations
 

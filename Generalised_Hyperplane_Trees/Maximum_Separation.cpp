@@ -8,7 +8,7 @@
 using namespace std;
 using namespace chrono;
 
-#define D 20 // dimension of data
+#define D 10 // dimension of data
 #define N_MAX 200 // cardinality of dataset
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
