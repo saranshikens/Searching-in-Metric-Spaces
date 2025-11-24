@@ -194,7 +194,7 @@ int main(){
     mt19937 rng((unsigned)time(0));
     uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
-    double totalBuildTime = 0, totalSearchTime = 0;
+    /*double totalBuildTime = 0, totalSearchTime = 0;
     int totalDistBuild = 0, totalDistSearch = 0, totalPivots = 0;
 
     for(int iter=0; iter<ITERATIONS; iter++){
@@ -233,7 +233,7 @@ int main(){
     cout<<"Average search time: "<<(totalSearchTime/ITERATIONS)<<" microseconds"<<endl;
     cout<<"Average distance computations in building: "<<(totalDistBuild/ITERATIONS)<<endl;
     cout<<"Average distance computations in searching: "<<(totalDistSearch/ITERATIONS)<<endl;
-    cout<<"Average pivots used: "<<(totalPivots/ITERATIONS)<<endl;
+    cout<<"Average pivots used: "<<(totalPivots/ITERATIONS)<<endl;*/
 
     // a demo run
     TreeNode* root = buildGHT(points, N_MAX, 4);

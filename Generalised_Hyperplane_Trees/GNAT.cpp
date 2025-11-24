@@ -11,7 +11,7 @@ using namespace chrono;
 
 #define D 10 // dimension of data
 #define N_MAX 200 // cardinality of dataset
-#define M 12 // no of pivots per internal node
+#define M 4 // no of pivots per internal node
 #define ITERATIONS 2000 // average out results over 2000 iterations
 
 // --------------------Global Counters---------------------
@@ -252,7 +252,7 @@ int main(){
     mt19937 rng((unsigned)time(0));
     uniform_real_distribution<float> dist(-10.0f, 10.0f);
 
-    double totalBuildTime = 0.0;
+    /*double totalBuildTime = 0.0;
     double totalSearchTime = 0.0;
     long long totalDistBuild = 0, totalDistSearch = 0, totalPivots = 0;
 
@@ -288,7 +288,7 @@ int main(){
     cout<<"Average search time: "<<(totalSearchTime/ITERATIONS)<<" microseconds"<<endl;
     cout<<"Average distance computations in building: "<<(totalDistBuild/ITERATIONS)<<endl;
     cout<<"Average distance computations in searching: "<<(totalDistSearch/ITERATIONS)<<endl;
-    cout<<"Average pivots used: "<<(totalPivots/ITERATIONS)<<endl;
+    cout<<"Average pivots used: "<<(totalPivots/ITERATIONS)<<endl;*/
 
     GNATNode* root = buildGNAT(points, N_MAX, 4);
     Point q;

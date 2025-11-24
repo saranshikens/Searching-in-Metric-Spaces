@@ -266,7 +266,7 @@ int main(){
 
     TreeNode* root = buildGHT(points, N_MAX, 4);
     // -------------------- Test insertion correctness --------------------
-    cout<<"\n=== INSERTION TEST START ===\n";
+  
 
     // pick a query point q
     Point q2;
@@ -336,7 +336,6 @@ int main(){
     printPoint(brute_after_pt);
     cout<<"\nDistance = "<<brute_after << endl;
 
-    cout<<"\n=== INSERTION TEST END ===\n";
 
     deleteTree(root);
 }
