@@ -1,7 +1,6 @@
 #include "dataset.h"
 #include <random>
 
-// Generates an array of multi-dimensional objects with random coordinates
 std::vector<Object> generate_dataset(int size, int dimensions, int coordinate_range = 50) {
     std::vector<Object> dataset;
     dataset.reserve(size);

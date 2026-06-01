@@ -6,16 +6,16 @@
 #include <unordered_map>
 #include <memory>
 
-// Represents a multi-dimensional data object
+// Global counter to track distance computations across build and search phases
+extern long long distance_count;
+
 struct Object {
     std::vector<int> coordinates;
     int id;
 };
 
-// Node structure for the Burkhard-Keller Tree
 struct BKTNode {
     Object pivot;
-    // Map discrete integer distances to child subtrees
     std::unordered_map<int, std::unique_ptr<BKTNode>> children;
 
     BKTNode(Object p) : pivot(p) {}
@@ -23,6 +23,7 @@ struct BKTNode {
 
 // Discrete distance metric: Manhattan Distance (L1 Norm)
 inline int discrete_distance(const Object& a, const Object& b) {
+    distance_count++; // Track every distance metric invocation
     int dist = 0;
     size_t dim = a.coordinates.size();
     for (size_t i = 0; i < dim; ++i) {
