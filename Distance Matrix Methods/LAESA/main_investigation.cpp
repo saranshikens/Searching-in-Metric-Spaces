@@ -13,8 +13,8 @@ std::vector<Object> range_search_laesa(const LAESAIndex& index, const std::vecto
 
 int main() {
     // Array testing sweeps requested for deep investigation
-    std::vector<int> N_sizes = {1000, 2000, 5000};
-    std::vector<int> D_dims = {2, 5, 10};
+    std::vector<int> N_sizes = {1000, 5000, 10000};
+    std::vector<int> D_dims = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     int k_fixed_pivots = 16; 
     double query_radius = 0.15;
 

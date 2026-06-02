@@ -106,7 +106,6 @@ SplitResult insert_node(MTreeNode* node, const Object& o_n, const Object& curr_p
     double min_enlargement = 1e18;
     double min_dist = 1e18;
 
-    // Follow the text heuristic rules for choosing subtrees
     for (size_t i = 0; i < node->internal_entries.size(); ++i) {
         double d = continuous_distance(o_n, node->internal_entries[i].p);
         double enlargement = std::max(0.0, d - node->internal_entries[i].rc);
@@ -152,6 +151,10 @@ SplitResult insert_node(MTreeNode* node, const Object& o_n, const Object& curr_p
         node->internal_entries.push_back(e1);
         node->internal_entries.push_back(e2);
         
+        // FIX: Sever ties to child pointers so destructor doesn't clear subtrees
+        if (!child->is_leaf) {
+            child->internal_entries.clear();
+        }
         delete child;
 
         if (node->internal_entries.size() > 4) {
@@ -182,6 +185,11 @@ void insert_m_tree(MTreeNode*& root, const Object& o_n) {
         InternalEntry e2{sr.p2, sr.rc2, 0.0, sr.right_ptr};
         new_root->internal_entries.push_back(e1);
         new_root->internal_entries.push_back(e2);
+        
+        // FIX: Sever ties to root pointers so destructor doesn't clear subtrees
+        if (!root->is_leaf) {
+            root->internal_entries.clear();
+        }
         delete root;
         root = new_root;
     }

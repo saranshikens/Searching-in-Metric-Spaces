@@ -13,8 +13,8 @@ GHTNode* build_ght(std::vector<Point>& points, int leaf_capacity);
 void range_search_ght(GHTNode* node, const Point& q, double r, std::vector<Point>& results);
 
 int main() {
-    std::vector<int> sizes = {1000, 5000, 10000};
-    std::vector<int> dimensions = {2, 5, 10};
+    std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     
     double query_radius = 0.15;
     int num_queries = 10;

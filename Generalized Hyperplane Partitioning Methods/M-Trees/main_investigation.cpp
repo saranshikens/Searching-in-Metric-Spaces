@@ -1,14 +1,15 @@
 #include "dataset.h"
 #include <chrono>
 #include <iomanip>
+#include <iostream>
 
 long long distance_count = 0;
 
 std::vector<Object> generate_dataset(int N, int D, int seed = 42);
 
 int main() {
-    std::vector<int> sizes = {100, 500, 1000};
-    std::vector<int> dimensions = {2, 5, 10};
+    std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     double query_radius = 0.15;
 
     std::cout << std::setw(8) << "Size(N)" 

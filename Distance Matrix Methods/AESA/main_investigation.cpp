@@ -12,8 +12,8 @@ AESAMatrix build_AESA(const std::vector<Point>& dataset);
 std::vector<int> search_AESA(const std::vector<Point>& dataset, const AESAMatrix& matrix, const Point& q, double r);
 
 int main() {
-    std::vector<int> sizes = {100, 500, 1000};
-    std::vector<int> dimensions = {2, 5, 10};
+    std::vector<int> sizes = {1000, 5000, 10000};
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     double query_radius = 0.15;
     int num_queries = 20;
 

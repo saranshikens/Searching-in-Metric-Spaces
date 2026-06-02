@@ -11,8 +11,8 @@ GNATNode* build_gnat(std::vector<std::vector<double>> points, size_t m);
 void range_search_gnat(GNATNode* node, const std::vector<double>& q, double r, std::vector<std::vector<double>>& results);
 
 int main() {
-    std::vector<int> sizes = {500, 1000, 2000};
-    std::vector<int> dimensions = {2, 5, 10};
+    std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     double query_radius = 0.15;
     size_t m_pivots = 4; // Node branching factor
 
