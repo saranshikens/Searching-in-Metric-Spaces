@@ -11,8 +11,8 @@ std::unique_ptr<BKTNode> build_bkt(std::vector<Object>& objects);
 void range_search_bkt(const std::unique_ptr<BKTNode>& root, const Object& q, int r, std::vector<Object>& results);
 
 void run_investigation() {
-    std::vector<int> target_sizes = {1000, 5000, 10000, 20000};
-    std::vector<int> target_dimensions = {2, 5, 10, 15};
+    std::vector<int> target_sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> target_dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     int search_radius = 12;
 
     std::cout << "========================================================================================================\n";

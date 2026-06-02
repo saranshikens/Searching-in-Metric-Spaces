@@ -54,8 +54,8 @@ void run_experiment(int N, int D, int h, int r) {
 }
 
 int main() {
-    std::vector<int> sample_sizes = {1000, 5000};
-    std::vector<int> dimensional_steps = {2, 5, 10};
+    std::vector<int> sample_sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> dimensional_steps = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     int total_pivots = 6; 
     int search_radius = 20;
 

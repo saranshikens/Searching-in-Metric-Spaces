@@ -65,17 +65,16 @@ void run_investigation_node(int N, int D, int R) {
 }
 
 int main() {
-    // Phase 1: Investigating Dataset Capacity Scaling (N)
-    std::cout << ">>> CRITERIA 1: EVALUATING DATASET CAPACITIES (N) <<<\n";
-    run_investigation_node(2000, 4, 20);
-    run_investigation_node(6000, 4, 20);
-    run_investigation_node(12000, 4, 20);
 
-    // Phase 2: Investigating Dimensional Scaling (D)
-    std::cout << ">>> CRITERIA 2: EVALUATING DIMENSIONAL CHANGES (D) <<<\n";
-    run_investigation_node(5000, 2, 10);
-    run_investigation_node(5000, 6, 30); // Radius scaled proportionally with dimension complexity
-    run_investigation_node(5000, 12, 60);
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
+    std::vector<int> num = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+
+    std::cout << ">>> CRITERIA 1: EVALUATING DATASET CAPACITIES (N) <<<\n";
+    for(auto& n: num){
+        for(auto& dim: dimensions){
+            run_investigation_node(n, dim, 20);
+        }
+    }
 
     return 0;
 }

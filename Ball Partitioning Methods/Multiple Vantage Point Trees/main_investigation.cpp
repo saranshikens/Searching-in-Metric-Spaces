@@ -54,12 +54,12 @@ void run_profile(size_t N, size_t D, double radius) {
 }
 
 int main() {
-    std::vector<size_t> test_sizes = {500, 1000, 2000};
-    std::vector<size_t> test_dims = {2, 5, 10};
+    std::vector<size_t> test_sizes = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<size_t> test_dims = {2, 5, 10, 25, 50, 100, 200, 400, 800};
     double query_radius = 12.5;
 
-    for (size_t d : test_dims) {
-        for (size_t n : test_sizes) {
+    for (size_t n : test_sizes) {
+        for (size_t d : test_dims) {
             run_profile(n, d, query_radius);
         }
     }

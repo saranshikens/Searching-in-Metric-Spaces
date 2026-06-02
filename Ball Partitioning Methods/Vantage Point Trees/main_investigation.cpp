@@ -50,15 +50,13 @@ void run_experiment(int N, int D, double r) {
 }
 
 int main() {
-    std::cout << "INVESTIGATION STEP 1: SCALING COHORT CAPACITY (N)\n";
-    run_experiment(500, 3, 12.0);
-    run_experiment(2000, 3, 12.0);
-    run_experiment(8000, 3, 12.0);
+    std::vector<int> number = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    std::vector<int> dimensions = {2, 5, 10, 25, 50, 100, 200, 400, 800};
 
-    std::cout << "INVESTIGATION STEP 2: SCALING METRIC DIMENSIONALITY (D)\n";
-    run_experiment(2000, 2, 12.0);
-    run_experiment(2000, 6, 12.0);
-    run_experiment(2000, 12, 12.0);
-
+    for(int& n: number){
+        for(int& d: dimensions){
+            run_experiment(n, d, 12.0);
+        }
+    }
     return 0;
 }
